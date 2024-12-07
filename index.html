@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DatBoi Animation</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        class SpriteAnimator {
+
+            constructor(animationData) {
+                this.animations = animationData.DatBoi;
+                this.currentAnimation = 'idle';
+                this.frameIndex = 0;
+                this.frameTimer = 0;
+                this.frameInterval = 1000 / 12; // animations set to 12 fps here ** CHANGE ME IF YOU WANT TO ADJUST ANIMATION RATE ***
+                this.lastTime = 0;
+                this.flipX = false; // using this as a hack to "flip" animations, might change this later if i have time
+                this.spriteImages = {};
+                this.lastDirection = 'S'; // track last movement direction, use for calculating movement/direction in functions below
+                this.idleTimer = 0;
+                // list of idle states for sprite, we reference this later with math.random() to pick a new idle animation after this.idleStateDuration expires
+                this.idleStates = [
+                    'idle', 'idleBackAndForth', 'idleBreathing', 'idleFall',
+                    'idleLayDown', 'idleLookAround', 'idleLookDown', 'idleLookLeft',
+                    'idleLookRight', 'idleLookUp', 'idleSit', 'idleSpin', 'idleWave'
+                ];
+                this.currentIdleState = 'idle';
+                this.idleStateDuration = 9000; // set time for  switching idle anims
+            }
+
+            async loadSprites() {
+                // load sprites for each animation state
+                for (const animName in this.animations) {
+                    this.spriteImages[animName] = [];
+                    const frameCount = this.animations[animName].length;
+
+                    for (let i = 0; i < frameCount; i++) {
+                        const img = new Image();
+                        const paddedIndex = i;
+                        img.src = `imgs/Penguins/DatBoi/${animName}/${paddedIndex}.png`;
+
+                        await new Promise((resolve, reject) => {
+                            img.onload = resolve;
+                            img.onerror = () => {
+                                console.error(`Failed to load: ${img.src}`);
+                                reject(new Error(`Failed to load: ${img.src}`));
+                            };
+                        });
+                        this.spriteImages[animName].push(img);
+                    }
+                }
+            }
+
+            getCurrentFrame() {
+                return {
+                    frameData: this.animations[this.currentAnimation][this.frameIndex],
+                    image: this.spriteImages[this.currentAnimation][this.frameIndex]
+                };
+            }
+
+            update(deltaTime) {
+                this.frameTimer += deltaTime;
+                if (this.frameTimer >= this.frameInterval) {
+                    this.frameTimer = 0;
+
+                    // handle animation looping
+                    if (this.currentAnimation.startsWith('idle')) {
+                        // for idle animations, might want to complete the animation before switching
+                        this.frameIndex = (this.frameIndex + 1) % this.animations[this.currentAnimation].length;
+                        if (this.frameIndex === 0) {
+                            // animation completed, might want to switch to a different idle
+                            this.idleTimer += this.frameInterval;
+                        }
+                    } else {
+                        // regular walking animations
+                        this.frameIndex = (this.frameIndex + 1) % this.animations[this.currentAnimation].length;
+                    }
+                }
+            }
+
+            setAnimation(name, forceReset = false) {
+                if ((this.currentAnimation !== name || forceReset) && this.animations[name]) {
+                    this.currentAnimation = name;
+                    this.frameIndex = 0;
+                    this.frameTimer = 0;
+                }
+            }
+
+            getDirectionalAnimation(dx, dy) {
+                // update flip state and track direction
+                if (dx !== 0 || dy !== 0) {
+                    // set flip state based on horizontal movement
+                    if (dx !== 0) {
+                        this.flipX = dx < 0;
+                    }
+
+                    // **MOVEMENT HANDLING & CALCULATIONS **
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        // horizontal movement
+                        this.lastDirection = dx > 0 ? 'E' : 'W';
+                        return 'walk_E'; // always use walk_E and let flipX handle direction
+                    } else if (Math.abs(dy) > Math.abs(dx)) {
+                        // vertical movement
+                        this.lastDirection = dy > 0 ? 'S' : 'N';
+                        return dy > 0 ? 'walk_S' : 'walk_N';
+                    } else {
+                        // diagonal movement
+                        if (dx > 0) {
+                            this.lastDirection = dy > 0 ? 'SE' : 'NE';
+                            return dy > 0 ? 'walk_SE' : 'walk_NE';
+                        } else {
+                            this.lastDirection = dy > 0 ? 'SW' : 'NW';
+                            // use the same animation but inverted
+                            return dy > 0 ? 'walk_SE' : 'walk_NE';
+                        }
+                    }
+                } else {
+                    // not moving - handle idle states here
+                    this.idleTimer += 16.67; // Approximate for 60fps, can adjust as desired
+                    if (this.idleTimer >= this.idleStateDuration) {
+                        this.idleTimer = 0;
+                        // randomly select a new idle animation
+                        const newIdleState = this.idleStates[Math.floor(Math.random() * this.idleStates.length)];
+                        this.currentIdleState = newIdleState;
+                    }
+                    return this.currentIdleState;
+                }
+            }
+        }
+
+        // object creation, classes, etc.
+        let canvas, ctx, backgroundImage;
+        let sprite = {
+            x: 0,
+            y: 0,
+            moveX: 0,
+            moveY: 0,
+            targetX: null,
+            targetY: null
+        };
+        let keys = {
+            w: false,
+            a: false,
+            s: false,
+            d: false
+        };
+        let animator;
+
+        // adjust this to modify how fast the sprite moves using WASD or mouse movement!
+        // examples:
+        // 1 = slow walk
+        // 2 = walking
+        // 3 = normal run **
+        // 4 = fast boi
+        // 5 = very fast boi
+        // anything past 5 feels a bit absurd and difficult to control
+        const MOVEMENT_SPEED = 3;
+
+        async function loadResources() {
+            // load animation data from json file, if it doesn't load throw an error
+            const response = await fetch('imgs/Penguins/animationData.json');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const animationData = await response.json();
+
+            // create and initialize animator object
+            animator = new SpriteAnimator(animationData);
+            await animator.loadSprites();
+                        // background image object creation and handling here
+            backgroundImage = new Image();
+            backgroundImage.src = 'imgs/Penguins/background.jpeg';  // select bg file
+            await new Promise((resolve, reject) => {
+                backgroundImage.onload = resolve;
+                backgroundImage.onerror = () => reject(new Error('Failed to load background image'));
+            });
+            return animator;
+
+        }
+
+        async function init() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            try {
+                await loadResources();
+
+                // resize canvas to match background image
+                resizeCanvas();
+
+                // initialize sprite position dead center of canvas
+                sprite.x = canvas.width / 2;
+                sprite.y = canvas.height / 2;
+
+                setupEventListeners();
+                requestAnimationFrame(gameLoop);
+            } catch (error) {
+                console.error('Failed to load game resources:', error);
+            }
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            // if background is loaded, update game boundaries
+            // todo: scale background better - imgs that are incorrect aspect ratio stretch weirdly. maybe provide alternate images later????
+            if (backgroundImage) {
+                // use full canvas dimensions for game boundaries
+                window.gameWidth = canvas.width;
+                window.gameHeight = canvas.height;
+
+                // check if sprite exists, ensure it stays in bounds after resizing canvas.
+                // this prevents the sprite from going out of bounds if the window is large and then resized smaller
+                if (sprite) {
+                    sprite.x = Math.min(Math.max(sprite.x, 0), window.gameWidth);
+                    sprite.y = Math.min(Math.max(sprite.y, 0), window.gameHeight);
+                }
+            }
+        }
+
+        function setupEventListeners() {
+            document.addEventListener('keydown', (e) => {
+                if (e.key.toLowerCase() in keys) {
+                    keys[e.key.toLowerCase()] = true;
+                    // clear target when using keyboard
+                    sprite.targetX = null;
+                    sprite.targetY = null;
+                }
+            });
+
+            document.addEventListener('keyup', (e) => {
+                if (e.key.toLowerCase() in keys) {
+                    keys[e.key.toLowerCase()] = false;
+                }
+            });
+
+            canvas.addEventListener('click', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const clickY = e.clientY - rect.top;
+
+                // Set target if click is within canvas boundaries
+                if (clickX >= 0 && clickX <= canvas.width &&
+                    clickY >= 0 && clickY <= canvas.height) {
+                    sprite.targetX = clickX;
+                    sprite.targetY = clickY;
+                }
+            });
+        }
+
+        function updateSprite(deltaTime) {
+            // reset movement
+            sprite.moveX = 0;
+            sprite.moveY = 0;
+
+            // handle click-to-move if target exists
+            if (sprite.targetX !== null && sprite.targetY !== null) {
+                const dx = sprite.targetX - sprite.x;
+                const dy = sprite.targetY - sprite.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // stopping movement if distance < movespeed
+                if (distance < MOVEMENT_SPEED) {
+                    sprite.targetX = null;
+                    sprite.targetY = null;
+                } else {
+                    // normalize the sprite movement and apply movement speed
+                    sprite.moveX = (dx / distance) * MOVEMENT_SPEED;
+                    sprite.moveY = (dy / distance) * MOVEMENT_SPEED;
+                }
+            }
+            // only apply WASD movement if we're not moving to a target - this lets us interrupt mouse movement with WASD keys
+            else {
+                if (keys.w) sprite.moveY -= MOVEMENT_SPEED;
+                if (keys.s) sprite.moveY += MOVEMENT_SPEED;
+                if (keys.a) sprite.moveX -= MOVEMENT_SPEED;
+                if (keys.d) sprite.moveX += MOVEMENT_SPEED;
+            }
+
+            // calculate new position
+            const newX = sprite.x + sprite.moveX;
+            const newY = sprite.y + sprite.moveY;
+
+            // apply boundaries based on background image dimensions
+            sprite.x = Math.max(0, Math.min(window.gameWidth, newX));
+            sprite.y = Math.max(0, Math.min(window.gameHeight, newY));
+
+            // update animation based on movement
+            const animationName = animator.getDirectionalAnimation(sprite.moveX, sprite.moveY);
+            animator.setAnimation(animationName);
+            animator.update(deltaTime);
+        }
+
+        function render() {
+            // clear canvas, get current anim frame
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (backgroundImage) {
+                // Draw background stretched to fill canvas
+                ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+            }
+
+            // Draw sprite at its position
+            const frame = animator.getCurrentFrame();
+            ctx.save();
+            ctx.translate(sprite.x, sprite.y);
+
+            // handle sprite flipping
+            if (animator.flipX) {
+                ctx.scale(-1, 1);
+            }
+
+            // draw the current frame
+            const frameData = frame.frameData;
+            ctx.drawImage(
+                frame.image,
+                -frameData.w/2, -frameData.h/2,
+                frameData.w, frameData.h
+            );
+
+            ctx.restore();
+
+            // debugging info located at top left of canvas
+            ctx.fillStyle = 'black';
+            ctx.fillText(`Animation: ${animator.currentAnimation}`, 10, 20);
+            ctx.fillText(`Frame: ${animator.frameIndex}`, 10, 40);
+            ctx.fillText(`Position: ${Math.round(sprite.x)}, ${Math.round(sprite.y)}`, 10, 60);
+        }
+
+        function gameLoop(currentTime) {
+            if (!animator.lastTime) animator.lastTime = currentTime;
+            const deltaTime = currentTime - animator.lastTime;
+            animator.lastTime = currentTime;
+
+            updateSprite(deltaTime);
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
