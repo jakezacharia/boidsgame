@@ -140,7 +140,7 @@
         // CONST VALUES
         // ADJUST THESE PARAMETERS TO CONFIGURE THE BOID SIMULATION!
         // note to self: these need to stay global
-        const NUM_BOIDS = 2000; // Number of boids in the flock
+        const NUM_BOIDS = 50; // Number of boids in the flock
         // adjust this to modify how fast the sprite moves using WASD or mouse movement!
         // examples:
         // 1 = slow walk
@@ -149,11 +149,12 @@
         // 4 = fast boi
         // 5 = very fast boi
         // anything past 5 feels a bit absurd
-        const MAX_SPEED = 2; // maximum speed for each boid
-        const BOID_RADIUS = 50; // neighborhood radius for alignment, cohesion, and separation
-        const AVOID_RADIUS = 25; // distance for avoidance behavior here
+        const MAX_SPEED = 5; // maximum speed for each boid
+        const BOID_RADIUS = 40; // neighborhood radius for alignment, cohesion, and separation. if this is too high, they eventually merge into one flock. keep < 50
+        const AVOID_RADIUS = 100; // distance for avoidance behavior here, turning this up will cause boid flocks to disperse more frequently
         const CANVAS_MARGIN = 10; // margin around canvas
-        const SPRITE_SCALE = 0.15; // adjust size of sprites
+        const SPRITE_SCALE = 0.25; // adjust size of sprites
+
 
 
         let boids = [];
@@ -170,6 +171,8 @@
                 this.frameTimer = 0; // timer for frame updates
                 this.frameInterval = 1000 / 12; // animations set to 12 fps here ** CHANGE ME IF YOU WANT TO ADJUST ANIMATION RATE ***
                 this.lastDirection = 'right'; // track direction for turning animations
+                this.interactionTimer = 0; // tracks time since last interaction w/ other boid
+
             }
 
             move() {
@@ -242,6 +245,8 @@
                             separation.y -= dy / distance;
                         }
 
+                        this.interactionTimer = 1; // set timer for how long boid visual interaction effect lasts
+
                         total++;
                     }
                 }
@@ -287,6 +292,7 @@
                 const scaledWidth = frame.frameData.w * SPRITE_SCALE;
                 const scaledHeight = frame.frameData.h * SPRITE_SCALE;
 
+                ctx.save();
                 // boid scaling, do not touch this, instead modify SPRITE_SCALE if you want to change size of sprite
                 ctx.drawImage(
                     frame.image,
@@ -295,6 +301,16 @@
                     scaledWidth,
                     scaledHeight
                 );
+
+                // flash red if interacting
+                if (this.interactionTimer > 0) {
+                    ctx.fillStyle = "rgba(255, 0, 125, 0.5)";
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, BOID_RADIUS / 2, 0, Math.PI * 2); // we can use the BOID_RADIUS const to visually indicate the magnetism of the boid
+                    ctx.fill();
+                    ctx.closePath();
+                    this.interactionTimer--; // decrement timer
+                }
             }
         }
 
