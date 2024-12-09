@@ -107,7 +107,7 @@
                 }
             }
 
-            // player animations used to occur here, moved function to boid class
+            // player movement animations used to occur here, moved function to boid class
         }
 
 
@@ -140,9 +140,7 @@
         // CONST VALUES
         // ADJUST THESE PARAMETERS TO CONFIGURE THE BOID SIMULATION!
         // note to self: these need to stay global
-
-
-        const NUM_BOIDS = 50; // Number of boids in the flock
+        const NUM_BOIDS = 2000; // Number of boids in the flock
         // adjust this to modify how fast the sprite moves using WASD or mouse movement!
         // examples:
         // 1 = slow walk
@@ -150,12 +148,12 @@
         // 3 = normal run **
         // 4 = fast boi
         // 5 = very fast boi
-        // anything past 5 feels a bit absurd and difficult to control
-        const MAX_SPEED = 5; // Maximum speed for each boid
-        const BOID_RADIUS = 50; // Neighborhood radius for alignment, cohesion, and separation
+        // anything past 5 feels a bit absurd
+        const MAX_SPEED = 2; // maximum speed for each boid
+        const BOID_RADIUS = 50; // neighborhood radius for alignment, cohesion, and separation
         const AVOID_RADIUS = 25; // distance for avoidance behavior here
         const CANVAS_MARGIN = 10; // margin around canvas
-        const SPRITE_SCALE = 0.25; // adjust size of sprites
+        const SPRITE_SCALE = 0.15; // adjust size of sprites
 
 
         let boids = [];
@@ -165,13 +163,13 @@
             constructor(x, y) {
                 this.x = x;
                 this.y = y;
-                this.vx = Math.random() * 2 - 1; // Random initial velocity
+                this.vx = Math.random() * 2 - 1; // random initial velocity
                 this.vy = Math.random() * 2 - 1;
-                this.animState = 'idle'; // Default animation state
-                this.frameIndex = 0; // Current animation frame
-                this.frameTimer = 0; // Timer for frame updates
+                this.animState = 'idle'; // default animation state
+                this.frameIndex = 0; // current animation frame
+                this.frameTimer = 0; // timer for frame updates
                 this.frameInterval = 1000 / 12; // animations set to 12 fps here ** CHANGE ME IF YOU WANT TO ADJUST ANIMATION RATE ***
-                this.lastDirection = 'right'; // Track direction for turning animations
+                this.lastDirection = 'right'; // track direction for turning animations
             }
 
             move() {
@@ -187,30 +185,28 @@
                 const dx = this.vx;
                 const dy = this.vy;
 
-                // Determine the animation state based on velocity direction
+                // determine the animation state based on velocity direction
                 if (Math.abs(dx) > Math.abs(dy)) {
-                    // Horizontal movement
+                    // horizontal movement
                     this.lastDirection = dx > 0 ? 'E' : 'W';
-                    this.animState = dx > 0 ? 'walk_E' : 'walk_W'; // Right or left animation
+                    this.animState = dx > 0 ? 'walk_E' : 'walk_W';
                 } else if (Math.abs(dy) > Math.abs(dx)) {
-                    // Vertical movement
+                    // vertical movement
                     this.lastDirection = dy > 0 ? 'S' : 'N';
-                    this.animState = dy > 0 ? 'walk_S' : 'walk_N'; // Up or down animation
+                    this.animState = dy > 0 ? 'walk_S' : 'walk_N';
                 } else if (dx !== 0 && dy !== 0) {
-                    // Diagonal movement
+                    // diagonal movement
                     if (dx > 0) {
                         this.lastDirection = dy > 0 ? 'SE' : 'NE';
-                        this.animState = dy > 0 ? 'walk_SE' : 'walk_NE'; // Southeast or northeast animation
+                        this.animState = dy > 0 ? 'walk_SE' : 'walk_NE';
                     } else {
                         this.lastDirection = dy > 0 ? 'SW' : 'NW';
-                        this.animState = dy > 0 ? 'walk_SW' : 'walk_NW'; // Southwest or northwest animation
+                        this.animState = dy > 0 ? 'walk_SW' : 'walk_NW';
                     }
-                } else {
-                    // Stationary
-                    this.animState = 'idle'; // Use idle animation when not moving
                 }
 
                 // Log a warning if the animation state is not found
+                // can remove later if needed
                 if (!animator.animations[this.animState]) {
                     console.warn(`Invalid animState '${this.animState}' for Boid. Defaulting to 'idle'.`);
                     this.animState = 'idle';
@@ -251,11 +247,11 @@
                 }
 
                 if (total > 0) {
-                    // Calculate average alignment
+                    // calculate average alignment
                     alignment.x /= total;
                     alignment.y /= total;
 
-                    // Calculate average cohesion
+                    // calculate average cohesion
                     cohesion.x /= total;
                     cohesion.y /= total;
 
@@ -263,7 +259,7 @@
                     this.vx += (alignment.x * 0.05 + (cohesion.x - this.x) * 0.01 + separation.x * 0.1);
                     this.vy += (alignment.y * 0.05 + (cohesion.y - this.y) * 0.01 + separation.y * 0.1);
 
-                    // Limit speed
+                    // limit speed of boids
                     let speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
                     if (speed > MAX_SPEED) {
                         this.vx = (this.vx / speed) * MAX_SPEED;
@@ -324,8 +320,8 @@
         // handle rendering of boids
         function renderBoids() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height); // Draw background
-
+            ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height); // draw canvas and bg, scaled properly
+            // render boids
             for (let boid of boids) {
                 boid.render(ctx);
             }
@@ -349,7 +345,7 @@
             window.addEventListener("resize", resizeCanvas);
 
             try {
-                await loadResources(); // Ensure sprites and background are loaded
+                await loadResources();  // wait to ensure that sprites and bg image are loaded
                 animator = new SpriteAnimator(await fetch('imgs/Penguins/animationData.json').then(res => res.json()));
                 await animator.loadSprites();
                 resizeCanvas();
