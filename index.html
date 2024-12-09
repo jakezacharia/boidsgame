@@ -3,14 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DatBoi Animation</title>
+    <title>DatBoids!</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     <script>
-        class SpriteAnimator {
 
+        /////////////////////////////////////////////////
+        //______  ___ _____  ______  _____ ___________ //
+        //|  _  \/ _ \_   _| | ___ \|  _  |_   _|  _  \//
+        //| | | / /_\ \| |   | |_/ /| | | | | | | | | |//
+        //| | | |  _  || |   | ___ \| | | | | | | | | |//
+        //| |/ /| | | || |   | |_/ /\ \_/ /_| |_| |/ / //
+        //|___/ \_| |_/\_/   \____/  \___/ \___/|___/  //
+        /////////////////////////////////////////////////
+        //
+        // By Jacob Zacharia & Brianna Flores-Rodriguez
+        //
+        // Some Notes:
+        // - was able to use a lot of the 2d sprite assignment to implement the boids (canvas, rendering, sprite class, etc)
+        // - stripped out the player controls, implemented boid functionality
+        // - shouts out to one of my favorite books "The Nature of Code" by Daniel Shiffman which basically saved my ass
+        // - https://natureofcode.com/autonomous-agents/
+        //
+        //
+        // Thanks for a fantastic class Professor Jardin!
+        /////////////////////////////////////////////////
+
+        class SpriteAnimator {
             constructor(animationData) {
                 this.animations = animationData.DatBoi;
                 this.currentAnimation = 'idle';
@@ -19,17 +40,10 @@
                 this.frameInterval = 1000 / 12; // animations set to 12 fps here ** CHANGE ME IF YOU WANT TO ADJUST ANIMATION RATE ***
                 this.lastTime = 0;
                 this.flipX = false; // using this as a hack to "flip" animations, might change this later if i have time
-                this.spriteImages = {};
                 this.lastDirection = 'S'; // track last movement direction, use for calculating movement/direction in functions below
-                this.idleTimer = 0;
-                // list of idle states for sprite, we reference this later with math.random() to pick a new idle animation after this.idleStateDuration expires
-                this.idleStates = [
-                    'idle', 'idleBackAndForth', 'idleBreathing', 'idleFall',
-                    'idleLayDown', 'idleLookAround', 'idleLookDown', 'idleLookLeft',
-                    'idleLookRight', 'idleLookUp', 'idleSit', 'idleSpin', 'idleWave'
-                ];
-                this.currentIdleState = 'idle';
-                this.idleStateDuration = 9000; // set time for  switching idle anims
+                this.spriteImages = {};
+                this.idleTimer = 0; // might not need this anymore but im keeping it incase it breaks something when I remove it lol, was prev used to set time intervals on idle anims
+
             }
 
             async loadSprites() {
@@ -40,8 +54,7 @@
 
                     for (let i = 0; i < frameCount; i++) {
                         const img = new Image();
-                        const paddedIndex = i;
-                        img.src = `imgs/Penguins/DatBoi/${animName}/${paddedIndex}.png`;
+                        img.src = `imgs/Penguins/DatBoi/${animName}/${i}.png`; // Ensure path matches your files
 
                         await new Promise((resolve, reject) => {
                             img.onload = resolve;
@@ -50,7 +63,10 @@
                                 reject(new Error(`Failed to load: ${img.src}`));
                             };
                         });
-                        this.spriteImages[animName].push(img);
+                        this.spriteImages[animName].push({
+                            image: img,
+                            frameData: this.animations[animName][i]
+                        });
                     }
                 }
             }
@@ -61,6 +77,7 @@
                     image: this.spriteImages[this.currentAnimation][this.frameIndex]
                 };
             }
+
 
             update(deltaTime) {
                 this.frameTimer += deltaTime;
@@ -90,75 +107,12 @@
                 }
             }
 
-            getDirectionalAnimation(dx, dy) {
-                // update flip state and track direction
-                if (dx !== 0 || dy !== 0) {
-                    // set flip state based on horizontal movement
-                    if (dx !== 0) {
-                        this.flipX = dx < 0;
-                    }
-
-                    // **MOVEMENT HANDLING & CALCULATIONS **
-                    if (Math.abs(dx) > Math.abs(dy)) {
-                        // horizontal movement
-                        this.lastDirection = dx > 0 ? 'E' : 'W';
-                        return 'walk_E'; // always use walk_E and let flipX handle direction
-                    } else if (Math.abs(dy) > Math.abs(dx)) {
-                        // vertical movement
-                        this.lastDirection = dy > 0 ? 'S' : 'N';
-                        return dy > 0 ? 'walk_S' : 'walk_N';
-                    } else {
-                        // diagonal movement
-                        if (dx > 0) {
-                            this.lastDirection = dy > 0 ? 'SE' : 'NE';
-                            return dy > 0 ? 'walk_SE' : 'walk_NE';
-                        } else {
-                            this.lastDirection = dy > 0 ? 'SW' : 'NW';
-                            // use the same animation but inverted
-                            return dy > 0 ? 'walk_SE' : 'walk_NE';
-                        }
-                    }
-                } else {
-                    // not moving - handle idle states here
-                    this.idleTimer += 16.67; // Approximate for 60fps, can adjust as desired
-                    if (this.idleTimer >= this.idleStateDuration) {
-                        this.idleTimer = 0;
-                        // randomly select a new idle animation
-                        const newIdleState = this.idleStates[Math.floor(Math.random() * this.idleStates.length)];
-                        this.currentIdleState = newIdleState;
-                    }
-                    return this.currentIdleState;
-                }
-            }
+            // player animations used to occur here, moved function to boid class
         }
 
-        // object creation, classes, etc.
-        let canvas, ctx, backgroundImage;
-        let sprite = {
-            x: 0,
-            y: 0,
-            moveX: 0,
-            moveY: 0,
-            targetX: null,
-            targetY: null
-        };
-        let keys = {
-            w: false,
-            a: false,
-            s: false,
-            d: false
-        };
-        let animator;
 
-        // adjust this to modify how fast the sprite moves using WASD or mouse movement!
-        // examples:
-        // 1 = slow walk
-        // 2 = walking
-        // 3 = normal run **
-        // 4 = fast boi
-        // 5 = very fast boi
-        // anything past 5 feels a bit absurd and difficult to control
-        const MOVEMENT_SPEED = 3;
+
+
 
         async function loadResources() {
             // load animation data from json file, if it doesn't load throw an error
@@ -183,157 +137,198 @@
 
         }
 
-        async function init() {
-            canvas = document.getElementById('gameCanvas');
-            ctx = canvas.getContext('2d');
+        // CONST VALUES
+        // ADJUST THESE PARAMETERS TO CONFIGURE THE BOID SIMULATION!
+        // note to self: these need to stay global
 
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
 
-            try {
-                await loadResources();
+        const NUM_BOIDS = 50; // Number of boids in the flock
+        // adjust this to modify how fast the sprite moves using WASD or mouse movement!
+        // examples:
+        // 1 = slow walk
+        // 2 = walking
+        // 3 = normal run **
+        // 4 = fast boi
+        // 5 = very fast boi
+        // anything past 5 feels a bit absurd and difficult to control
+        const MAX_SPEED = 5; // Maximum speed for each boid
+        const BOID_RADIUS = 50; // Neighborhood radius for alignment, cohesion, and separation
+        const AVOID_RADIUS = 25; // distance for avoidance behavior here
+        const CANVAS_MARGIN = 10; // margin around canvas
+        const SPRITE_SCALE = 0.25; // adjust size of sprites
 
-                // resize canvas to match background image
-                resizeCanvas();
 
-                // initialize sprite position dead center of canvas
-                sprite.x = canvas.width / 2;
-                sprite.y = canvas.height / 2;
+        let boids = [];
+        let animator;
 
-                setupEventListeners();
-                requestAnimationFrame(gameLoop);
-            } catch (error) {
-                console.error('Failed to load game resources:', error);
+        class Boid {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = Math.random() * 2 - 1; // Random initial velocity
+                this.vy = Math.random() * 2 - 1;
+                this.animState = 'idle'; // Default animation state
+                this.frameIndex = 0; // Current animation frame
+                this.frameTimer = 0; // Timer for frame updates
+                this.frameInterval = 1000 / 12; // animations set to 12 fps here ** CHANGE ME IF YOU WANT TO ADJUST ANIMATION RATE ***
+                this.lastDirection = 'right'; // Track direction for turning animations
             }
-        }
 
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            move() {
+                this.x += this.vx;
+                this.y += this.vy;
 
-            // if background is loaded, update game boundaries
-            // todo: scale background better - imgs that are incorrect aspect ratio stretch weirdly. maybe provide alternate images later????
-            if (backgroundImage) {
-                // use full canvas dimensions for game boundaries
-                window.gameWidth = canvas.width;
-                window.gameHeight = canvas.height;
-
-                // check if sprite exists, ensure it stays in bounds after resizing canvas.
-                // this prevents the sprite from going out of bounds if the window is large and then resized smaller
-                if (sprite) {
-                    sprite.x = Math.min(Math.max(sprite.x, 0), window.gameWidth);
-                    sprite.y = Math.min(Math.max(sprite.y, 0), window.gameHeight);
-                }
+                // handle boid boundaries within canvas
+                if (this.x < CANVAS_MARGIN || this.x > canvas.width - CANVAS_MARGIN) this.vx *= -1;
+                if (this.y < CANVAS_MARGIN || this.y > canvas.height - CANVAS_MARGIN) this.vy *= -1;
             }
-        }
 
-        function setupEventListeners() {
-            document.addEventListener('keydown', (e) => {
-                if (e.key.toLowerCase() in keys) {
-                    keys[e.key.toLowerCase()] = true;
-                    // clear target when using keyboard
-                    sprite.targetX = null;
-                    sprite.targetY = null;
-                }
-            });
+            updateDirection() {
+                const dx = this.vx;
+                const dy = this.vy;
 
-            document.addEventListener('keyup', (e) => {
-                if (e.key.toLowerCase() in keys) {
-                    keys[e.key.toLowerCase()] = false;
-                }
-            });
-
-            canvas.addEventListener('click', (e) => {
-                const rect = canvas.getBoundingClientRect();
-                const clickX = e.clientX - rect.left;
-                const clickY = e.clientY - rect.top;
-
-                // Set target if click is within canvas boundaries
-                if (clickX >= 0 && clickX <= canvas.width &&
-                    clickY >= 0 && clickY <= canvas.height) {
-                    sprite.targetX = clickX;
-                    sprite.targetY = clickY;
-                }
-            });
-        }
-
-        function updateSprite(deltaTime) {
-            // reset movement
-            sprite.moveX = 0;
-            sprite.moveY = 0;
-
-            // handle click-to-move if target exists
-            if (sprite.targetX !== null && sprite.targetY !== null) {
-                const dx = sprite.targetX - sprite.x;
-                const dy = sprite.targetY - sprite.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                // stopping movement if distance < movespeed
-                if (distance < MOVEMENT_SPEED) {
-                    sprite.targetX = null;
-                    sprite.targetY = null;
+                // Determine the animation state based on velocity direction
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    // Horizontal movement
+                    this.lastDirection = dx > 0 ? 'E' : 'W';
+                    this.animState = dx > 0 ? 'walk_E' : 'walk_W'; // Right or left animation
+                } else if (Math.abs(dy) > Math.abs(dx)) {
+                    // Vertical movement
+                    this.lastDirection = dy > 0 ? 'S' : 'N';
+                    this.animState = dy > 0 ? 'walk_S' : 'walk_N'; // Up or down animation
+                } else if (dx !== 0 && dy !== 0) {
+                    // Diagonal movement
+                    if (dx > 0) {
+                        this.lastDirection = dy > 0 ? 'SE' : 'NE';
+                        this.animState = dy > 0 ? 'walk_SE' : 'walk_NE'; // Southeast or northeast animation
+                    } else {
+                        this.lastDirection = dy > 0 ? 'SW' : 'NW';
+                        this.animState = dy > 0 ? 'walk_SW' : 'walk_NW'; // Southwest or northwest animation
+                    }
                 } else {
-                    // normalize the sprite movement and apply movement speed
-                    sprite.moveX = (dx / distance) * MOVEMENT_SPEED;
-                    sprite.moveY = (dy / distance) * MOVEMENT_SPEED;
+                    // Stationary
+                    this.animState = 'idle'; // Use idle animation when not moving
+                }
+
+                // Log a warning if the animation state is not found
+                if (!animator.animations[this.animState]) {
+                    console.warn(`Invalid animState '${this.animState}' for Boid. Defaulting to 'idle'.`);
+                    this.animState = 'idle';
                 }
             }
-            // only apply WASD movement if we're not moving to a target - this lets us interrupt mouse movement with WASD keys
-            else {
-                if (keys.w) sprite.moveY -= MOVEMENT_SPEED;
-                if (keys.s) sprite.moveY += MOVEMENT_SPEED;
-                if (keys.a) sprite.moveX -= MOVEMENT_SPEED;
-                if (keys.d) sprite.moveX += MOVEMENT_SPEED;
+
+
+            applyRules(boids) {
+                let alignment = { x: 0, y: 0 };
+                let cohesion = { x: 0, y: 0 };
+                let separation = { x: 0, y: 0 };
+                let total = 0;
+
+                for (let other of boids) {
+                    if (other === this) continue;
+                    let dx = other.x - this.x;
+                    let dy = other.y - this.y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < BOID_RADIUS) {
+                        // chapter 5.5 inspired this https://natureofcode.com/autonomous-agents/
+                        // boid alignment
+                        alignment.x += other.vx;
+                        alignment.y += other.vy;
+
+                        // boid cohesion
+                        cohesion.x += other.x;
+                        cohesion.y += other.y;
+
+                        // boid sparation
+                        if (distance < AVOID_RADIUS) {
+                            separation.x -= dx / distance;
+                            separation.y -= dy / distance;
+                        }
+
+                        total++;
+                    }
+                }
+
+                if (total > 0) {
+                    // Calculate average alignment
+                    alignment.x /= total;
+                    alignment.y /= total;
+
+                    // Calculate average cohesion
+                    cohesion.x /= total;
+                    cohesion.y /= total;
+
+                    // adjust velocities
+                    this.vx += (alignment.x * 0.05 + (cohesion.x - this.x) * 0.01 + separation.x * 0.1);
+                    this.vy += (alignment.y * 0.05 + (cohesion.y - this.y) * 0.01 + separation.y * 0.1);
+
+                    // Limit speed
+                    let speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                    if (speed > MAX_SPEED) {
+                        this.vx = (this.vx / speed) * MAX_SPEED;
+                        this.vy = (this.vy / speed) * MAX_SPEED;
+                    }
+                }
             }
 
-            // calculate new position
-            const newX = sprite.x + sprite.moveX;
-            const newY = sprite.y + sprite.moveY;
+            updateAnimation(deltaTime) {
+                this.frameTimer += deltaTime;
+                this.updateDirection();
+                // update frame index when enough time has passed
+                if (this.frameTimer >= this.frameInterval) {
+                    this.frameTimer = 0;
+                    this.frameIndex = (this.frameIndex + 1) % animator.animations[this.animState].length;
+                }
+            }
 
-            // apply boundaries based on background image dimensions
-            sprite.x = Math.max(0, Math.min(window.gameWidth, newX));
-            sprite.y = Math.max(0, Math.min(window.gameHeight, newY));
+            getCurrentFrame() {
+                return animator.spriteImages[this.animState][this.frameIndex];
+            }
 
-            // update animation based on movement
-            const animationName = animator.getDirectionalAnimation(sprite.moveX, sprite.moveY);
-            animator.setAnimation(animationName);
-            animator.update(deltaTime);
+            render(ctx) {
+                const frame = this.getCurrentFrame();
+                const scaledWidth = frame.frameData.w * SPRITE_SCALE;
+                const scaledHeight = frame.frameData.h * SPRITE_SCALE;
+
+                // boid scaling, do not touch this, instead modify SPRITE_SCALE if you want to change size of sprite
+                ctx.drawImage(
+                    frame.image,
+                    this.x - scaledWidth / 2,
+                    this.y - scaledHeight / 2,
+                    scaledWidth,
+                    scaledHeight
+                );
+            }
         }
 
-        function render() {
-            // clear canvas, get current anim frame
+        // spawn da boids here, using a loop and run against NUM_BOIDS constant as a max iteration count.
+        function initBoids() {
+            for (let i = 0; i < NUM_BOIDS; i++) {
+                // place them randomly on canvas by assigning a random x,y coordinate within canvas
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                boids.push(new Boid(x, y));
+            }
+        }
+
+        // boid param updating
+        function updateBoids(deltaTime) {
+            for (let boid of boids) {
+                boid.applyRules(boids); // boid behavior, rules defined in boid class above
+                boid.move(); // move based on velocity
+                boid.updateAnimation(deltaTime); // update animation based on direction
+            }
+        }
+
+        // handle rendering of boids
+        function renderBoids() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height); // Draw background
 
-            if (backgroundImage) {
-                // Draw background stretched to fill canvas
-                ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+            for (let boid of boids) {
+                boid.render(ctx);
             }
-
-            // Draw sprite at its position
-            const frame = animator.getCurrentFrame();
-            ctx.save();
-            ctx.translate(sprite.x, sprite.y);
-
-            // handle sprite flipping
-            if (animator.flipX) {
-                ctx.scale(-1, 1);
-            }
-
-            // draw the current frame
-            const frameData = frame.frameData;
-            ctx.drawImage(
-                frame.image,
-                -frameData.w/2, -frameData.h/2,
-                frameData.w, frameData.h
-            );
-
-            ctx.restore();
-
-            // debugging info located at top left of canvas
-            ctx.fillStyle = 'black';
-            ctx.fillText(`Animation: ${animator.currentAnimation}`, 10, 20);
-            ctx.fillText(`Frame: ${animator.frameIndex}`, 10, 40);
-            ctx.fillText(`Position: ${Math.round(sprite.x)}, ${Math.round(sprite.y)}`, 10, 60);
         }
 
         function gameLoop(currentTime) {
@@ -341,12 +336,35 @@
             const deltaTime = currentTime - animator.lastTime;
             animator.lastTime = currentTime;
 
-            updateSprite(deltaTime);
-            render();
+            updateBoids(deltaTime);
+            renderBoids();
             requestAnimationFrame(gameLoop);
         }
 
-        window.addEventListener('load', init);
+        // init function, rewrote async init from prev assign
+        window.addEventListener("load", async () => {
+            canvas = document.getElementById("gameCanvas");
+            ctx = canvas.getContext("2d");
+            resizeCanvas();
+            window.addEventListener("resize", resizeCanvas);
+
+            try {
+                await loadResources(); // Ensure sprites and background are loaded
+                animator = new SpriteAnimator(await fetch('imgs/Penguins/animationData.json').then(res => res.json()));
+                await animator.loadSprites();
+                resizeCanvas();
+                initBoids();
+                requestAnimationFrame(gameLoop);
+            } catch (error) {
+                console.error("Failed to initialize Boids:", error);
+            }
+        });
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
     </script>
+
 </body>
 </html>
