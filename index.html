@@ -54,7 +54,7 @@
 
                     for (let i = 0; i < frameCount; i++) {
                         const img = new Image();
-                        img.src = `imgs/Penguins/DatBoi/${animName}/${i}.png`; // Ensure path matches your files
+                        img.src = `imgs/Penguins/DatBoi/${animName}/${i}.png`;
 
                         await new Promise((resolve, reject) => {
                             img.onload = resolve;
@@ -110,10 +110,6 @@
             // player movement animations used to occur here, moved function to boid class
         }
 
-
-
-
-
         async function loadResources() {
             // load animation data from json file, if it doesn't load throw an error
             const response = await fetch('imgs/Penguins/animationData.json');
@@ -126,7 +122,7 @@
             // create and initialize animator object
             animator = new SpriteAnimator(animationData);
             await animator.loadSprites();
-                        // background image object creation and handling here
+            // background image object creation and handling here
             backgroundImage = new Image();
             backgroundImage.src = 'imgs/Penguins/background.jpeg';  // select bg file
             await new Promise((resolve, reject) => {
@@ -141,15 +137,15 @@
         // ADJUST THESE PARAMETERS TO CONFIGURE THE BOID SIMULATION!
         // note to self: these need to stay global
         const NUM_BOIDS = 50; // Number of boids in the flock
+
         // adjust this to modify how fast the sprite moves using WASD or mouse movement!
-        // examples:
         // 1 = slow walk
         // 2 = walking
         // 3 = normal run **
         // 4 = fast boi
         // 5 = very fast boi
-        // anything past 5 feels a bit absurd
         const MAX_SPEED = 5; // maximum speed for each boid
+
         const BOID_RADIUS = 40; // neighborhood radius for alignment, cohesion, and separation. if this is too high, they eventually merge into one flock. keep < 50
         const AVOID_RADIUS = 100; // distance for avoidance behavior here, turning this up will cause boid flocks to disperse more frequently
         const CANVAS_MARGIN = 10; // margin around canvas
@@ -208,7 +204,7 @@
                     }
                 }
 
-                // Log a warning if the animation state is not found
+                // log a warning if the animation state is not found
                 // can remove later if needed
                 if (!animator.animations[this.animState]) {
                     console.warn(`Invalid animState '${this.animState}' for Boid. Defaulting to 'idle'.`);
@@ -302,7 +298,7 @@
                     scaledHeight
                 );
 
-                // flash red if interacting
+                // glow reddish purple if interacting w/ flock
                 if (this.interactionTimer > 0) {
                     ctx.fillStyle = "rgba(255, 0, 125, 0.5)";
                     ctx.beginPath();
